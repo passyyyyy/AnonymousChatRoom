@@ -1,0 +1,1 @@
+A very simple project, an anonymous chat room, you can join by entering the room number, and the communication protocol uses WebSocket
