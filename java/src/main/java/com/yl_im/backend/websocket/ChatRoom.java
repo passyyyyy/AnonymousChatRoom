@@ -34,14 +34,14 @@ public class ChatRoom {
             session.getUserProperties().put("room", roomName);
             SESSIONS.add(session);
             SESSION_POOL.computeIfAbsent(roomName, k -> new CopyOnWriteArraySet<>()).add(session);
-            log.info("id: {}加入房间: {},房间人数: {},服务器人数: {}", userName, roomName, getOnlineCount(roomName), SESSIONS.size());
+            log.info("id: {} joined room: {}, number of people in the room: {}, total number of connections: {}", userName, roomName, getOnlineCount(roomName), SESSIONS.size());
             sendAllMessage(roomName,
                     JSON.toJSONString(
                             new Message(roomName, userName, null, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), null, MessageTypeConstant.MESSAGE_TYPE_USER_JOIN)
                     )
             );
         } catch (Exception e) {
-            log.error("WebSocket连接打开时发生错误", e);
+            log.error("Error occurred when opening WebSocket connection", e);
         }
     }
 
@@ -62,9 +62,9 @@ public class ChatRoom {
                             new Message(roomName, userName, null, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")), null, MessageTypeConstant.MESSAGE_TYPE_USER_QUIT)
                     )
             );
-            log.info("id为: {} 连接断开，总数为: {}", userName, SESSIONS.size());
+            log.info("Connection with id: {} closed, total number of connections: {}", userName, SESSIONS.size());
         } catch (Exception e) {
-            log.error("WebSocket连接关闭时发生错误", e);
+            log.error("Error occurred when closing WebSocket connection", e);
         }
     }
 
@@ -80,22 +80,22 @@ public class ChatRoom {
             CopyOnWriteArrayList<Message> messages = MESSAGE_POOL.computeIfAbsent(roomName, k -> new CopyOnWriteArrayList<>());
             synchronized (messages) {
                 if (messages.size() >= 10) {
-                    messages.remove(messages.iterator().next()); // 移除最早的一条消息
+                    messages.remove(messages.iterator().next()); // Remove the earliest message
                 }
                 messages.add(mes);
             }
 
-            log.info("room:{},id: {}, 消息: {}", roomName, userName, message);
+            log.info("room:{}, id: {}, message: {}", roomName, userName, message);
         } else {
-            log.info("【WebSocket消息】收到客户端消息：未知用户，消息: {}", message);
+            log.info("[WebSocket message] Received message from unknown user: {}", message);
         }
     }
 
     /**
-     * 此为广播消息，只给 roomName 相同的 Session 发送信息
+     * This method broadcasts a message to all sessions in the same room.
      *
-     * @param roomName 房间名称
-     * @param message  消息
+     * @param roomName Room name
+     * @param message  Message content
      */
     public void sendAllMessage(String roomName, String message) {
         CopyOnWriteArraySet<Session> sessions = SESSION_POOL.get(roomName);
@@ -105,12 +105,17 @@ public class ChatRoom {
                     session.getAsyncRemote().sendText(message);
                 }
             } catch (Exception e) {
-                log.error("广播消息时发生错误", e);
+                log.error("Error occurred while broadcasting message", e);
             }
         }
     }
 
-    // 给单个 Session 发送消息
+    /**
+     * Send a message to a specific session by user name.
+     *
+     * @param userName User name
+     * @param message  Message content
+     */
     public void sendMessageTo(String userName, String message) {
         try {
             for (CopyOnWriteArraySet<Session> sessions : SESSION_POOL.values()) {
@@ -118,18 +123,22 @@ public class ChatRoom {
                     if (userName.equals(session.getUserProperties().get("user"))) {
                         if (session.isOpen()) {
                             session.getAsyncRemote().sendText(message);
-                            return; // 发送消息后退出方法
+                            return; // Exit the method after sending the message
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            log.error("发送消息时发生错误", e);
+            log.error("Error occurred while sending message", e);
         }
     }
 
-
-    // 获取房间在线人数
+    /**
+     * Get the number of online users in the room.
+     *
+     * @param roomName Room name
+     * @return Number of online users
+     */
     public Integer getOnlineCount(String roomName) {
         Set<Session> sessions = SESSION_POOL.get(roomName);
         if (sessions != null) {
@@ -139,7 +148,12 @@ public class ChatRoom {
         }
     }
 
-    // 获取聊天记录
+    /**
+     * Get chat history for a specific room.
+     *
+     * @param roomName Room name
+     * @return Chat history as JSON string
+     */
     public String getChatHistory(String roomName) {
         CopyOnWriteArrayList<Message> messages = MESSAGE_POOL.get(roomName);
         if (messages != null) {
